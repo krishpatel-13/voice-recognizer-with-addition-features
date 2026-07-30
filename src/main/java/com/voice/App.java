@@ -46,7 +46,7 @@ public class App {
         DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
 
         try {
-            // Initialize Robot for mouse scrolling
+            // Initialize Robot for mouse scrolling and system keys
             Robot robot = new Robot();                          //  [ robot is hella essential cuz its responsible for user input for example
                                                                 // mouse click, scrolling up / down and so on... ]
 
@@ -107,12 +107,12 @@ public class App {
                                     ex.printStackTrace();
                                 }
                             }
-                             else if (command.contains("open games")){
+                            else if (command.contains("open games")){
                                 try{
                                     Runtime.getRuntime().exec("cmd /c start com.epicgames.launcher://store");   //E P I C     G a m e s 
                                     lastOpenedProcess = "EpicGamesLauncher.exe";
                                     lastOpenedName = "Epic Games";
-                                    System.out.println(("Opening Epic Games...."));
+                                    System.out.println("Opening Epic Games....");
                                 } catch(Exception ex){
                                     System.out.println("Failed to open Epic Games");
                                     ex.printStackTrace();
@@ -123,11 +123,36 @@ public class App {
                                     Runtime.getRuntime().exec("cmd /c start steam://open/main");
                                     lastOpenedProcess = "steam.exe";
                                     lastOpenedName = "Steam";
-                                    System.out.println(("Opening Steam..."));      // S t e a m     
+                                    System.out.println("Opening Steam...");      // S t e a m     
                                 } catch(Exception ex){
                                     System.out.println("Failed to open Steam");
                                     ex.printStackTrace();
                                 }
+                            }
+                            // --- OPEN INSTAGRAM ON EDGE ---
+                            else if (command.contains("open instagram") || command.contains("search instagram") || command.contains("instagram")) {
+                                try {
+                                    new ProcessBuilder("cmd", "/c", "start", "msedge", "https://www.instagram.com").start();   // Opens Instagram in Edge
+                                    lastOpenedProcess = "msedge.exe";
+                                    lastOpenedName = "Edge (Instagram)";
+                                    System.out.println("Opening Instagram on Edge...");
+                                } catch (Exception ex) {
+                                    System.out.println("Failed to open Instagram on Edge.");
+                                    ex.printStackTrace();
+                                }
+                            }
+                            // --- VOLUME CONTROL (FIXED) ---
+                            else if (command.contains("volume up") || command.contains("turn up volume") || command.contains("increase volume")) {
+                                pressVolumeKey("0xAF", 5); // 0xAF = Volume Up (pressed 5 times)
+                                System.out.println("Increasing volume...");
+                            }
+                            else if (command.contains("volume down") || command.contains("turn down volume") || command.contains("decrease volume")) {
+                                pressVolumeKey("0xAE", 5); // 0xAE = Volume Down (pressed 5 times)
+                                System.out.println("Decreasing volume...");
+                            }
+                            else if (command.contains("mute volume") || command.contains("mute audio") || command.contains("unmute")) {
+                                pressVolumeKey("0xAD", 1); // 0xAD = Mute Toggle
+                                System.out.println("Toggling volume mute...");
                             }
                             else if (command.contains("scroll down")) {
                                 robot.mouseWheel(6); // Positive value scrolls down              // main scrolling part starts here 
@@ -193,6 +218,17 @@ public class App {
         }
     }
 
+    // Helper function to trigger Windows system volume keys cleanly
+    private static void pressVolumeKey(String keyCodeHex, int repeatCount) {
+        try {
+            String psCommand = "for ($i=0; $i -lt " + repeatCount + "; $i++) { "
+                             + "(New-Object -ComObject WScript.Shell).SendKeys([char]" + keyCodeHex + ") "
+                             + "}";
+            new ProcessBuilder("powershell", "-Command", psCommand).start();
+        } catch (Exception e) {
+            System.out.println("Failed to send volume key event.");
+        }
+    }
 
     //  HERE STARTS THE FILE SEARCH THINGY make sure to look here if theres anything wrong with searching 
 
