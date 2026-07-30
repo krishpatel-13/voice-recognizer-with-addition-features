@@ -1,6 +1,11 @@
 package com.voice;
 
 import java.awt.Robot; // Added for mouse wheel control
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -20,6 +25,19 @@ public class App {
     // Global tracker to store the process executable name of the last launched app
     private static String lastOpenedProcess = null;
     private static String lastOpenedName = "";
+
+    // Simple file model for searching
+    static class ProjectFile {
+        String name;
+        String path;
+        boolean isAdminOnly;
+
+        ProjectFile(String name, String path, boolean isAdminOnly) {
+            this.name = name;
+            this.path = path;
+            this.isAdminOnly = isAdminOnly;
+        }
+    }
 
     public static void main(String[] args) {
         LibVosk.setLogLevel(LogLevel.WARNINGS);
@@ -45,6 +63,12 @@ public class App {
             int bytesRead;
             ObjectMapper objectMapper = new ObjectMapper();
 
+            // Set current user role (false = regular user, true = admin)
+            boolean isUserAdmin = false; 
+
+            // Auto-scan project files dynamically
+            List<ProjectFile> fileIndex = scanDirectory(new File("."), new ArrayList<>());
+
             while (true) {
                 bytesRead = microphone.read(buffer, 0, buffer.length);
 
@@ -58,6 +82,9 @@ public class App {
                             System.out.println(" || Command Registered : " + text);
 
                             String command = text.toLowerCase();
+
+                            // Normalizing input (e.g. "d o c s" -> "docs", "v two" -> "v2")
+                            String normalizedCommand = normalizeVoiceInput(command);
 
                             if (command.contains("open edge")) {
                                 try {
@@ -96,7 +123,7 @@ public class App {
                                     Runtime.getRuntime().exec("cmd /c start steam://open/main");
                                     lastOpenedProcess = "steam.exe";
                                     lastOpenedName = "Steam";
-                                    System.out.println(("Opening Steam..."));              // S t e a m     
+                                    System.out.println(("Opening Steam..."));      // S t e a m     
                                 } catch(Exception ex){
                                     System.out.println("Failed to open Steam");
                                     ex.printStackTrace();
@@ -125,7 +152,27 @@ public class App {
                                     }
                                 } else {
                                     System.out.println("No recently opened application recorded to exit.");   //its prtty clear in code but just for reference lol, 
-                                                                                                              //if theres nothing to close its gona return the print statement ofc 
+                                                                                                              //if theres nothing to close its gona return the 
+                                                                                                              // print statement ofc 
+                                }
+                            }
+                            // File Search (Option A Security + Auto-Scanned Directory Index)
+                            else if (normalizedCommand.startsWith("find ") || normalizedCommand.startsWith("search ")) {
+                                String searchTerm = normalizedCommand.replace("find ", "").replace("search ", "").trim();
+                                System.out.println("Searching files for: " + searchTerm);
+
+                                boolean found = false;
+                                for (ProjectFile file : fileIndex) {
+                                    // Option A: Skip admin files silently if the user isn't an admin
+                                    if (file.isAdminOnly && !isUserAdmin) continue;
+
+                                    if (file.name.toLowerCase().contains(searchTerm)) {
+                                        System.out.println("Found match: " + file.name + " at path: " + file.path);
+                                        found = true;
+                                    }
+                                }
+                                if (!found) {
+                                    System.out.println("No files found matching: " + searchTerm);
                                 }
                             }
                         }
@@ -144,5 +191,47 @@ public class App {
             System.out.println("An error occurred with the mic or model file.");
             e.printStackTrace();
         }
+    }
+
+
+    //  HERE STARTS THE FILE SEARCH THINGY make sure to look here if theres anything wrong with searching 
+
+    // Helper 1: Standard Java regex normalizer (stretches single letters and basic numbers)
+    private static String normalizeVoiceInput(String input) {
+        if (input == null) return "";
+
+        // 1. Convert simple spoken numbers
+        String cleaned = input
+            .replaceAll("(?i)\\b(two)\\b", "2")
+            .replaceAll("(?i)\\b(three)\\b", "3")
+            .replaceAll("(?i)\\b(four)\\b", "4");
+
+        // 2. Stitch single letters ("d o c s" -> "docs") using java.util.regex.Matcher
+        Pattern pattern = Pattern.compile("(?:\\b[a-zA-Z0-9]\\b\\s*){2,}");
+        Matcher matcher = pattern.matcher(cleaned);
+        StringBuilder sb = new StringBuilder();
+
+        while (matcher.find()) {
+            matcher.appendReplacement(sb, matcher.group().replaceAll("\\s+", ""));
+        }
+        matcher.appendTail(sb);
+
+        return sb.toString().toLowerCase().trim();
+    }
+
+    // Helper 2: Scans current directory tree dynamically on launch
+    private static List<ProjectFile> scanDirectory(File dir, List<ProjectFile> fileList) {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isDirectory() && !file.getName().startsWith(".")) {
+                    scanDirectory(file, fileList);
+                } else if (file.isFile()) {
+                    boolean isAdmin = file.getName().contains("admin") || file.getName().endsWith(".env");
+                    fileList.add(new ProjectFile(file.getName(), file.getPath(), isAdmin));
+                }
+            }
+        }
+        return fileList;
     }
 }
