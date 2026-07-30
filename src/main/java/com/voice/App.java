@@ -124,7 +124,8 @@ public class App {
                                         ex.printStackTrace();
                                     }
                                 } else {
-                                    System.out.println("No recently opened application recorded to exit.");
+                                    System.out.println("No recently opened application recorded to exit.");   //its prtty clear in code but just for reference lol, 
+                                                                                                              //if theres nothing to close its gona return the print statement ofc 
                                 }
                             }
                         }
