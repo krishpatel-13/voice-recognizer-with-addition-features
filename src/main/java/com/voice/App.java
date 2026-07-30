@@ -113,7 +113,9 @@ public class App {
                             else if (command.contains("exit") || command.contains("close process") || command.equals("close")) {
                                 if (lastOpenedProcess != null) {
                                     try {
-                                        Runtime.getRuntime().exec("taskkill /IM " + lastOpenedProcess + " /F");
+                                        Runtime.getRuntime().exec("taskkill /IM " + lastOpenedProcess + " /F");             //responsible for closing last task first its gona verify 
+                                                                                                                            //if ur registered word is close if yes its gona close last 
+                                                                                                                            //last opened task 
                                         System.out.println("Exiting last opened app: " + lastOpenedName);
                                         lastOpenedProcess = null;
                                         lastOpenedName = "";
