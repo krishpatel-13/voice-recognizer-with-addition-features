@@ -103,7 +103,7 @@ public class App {
                                 }
                             }
                             else if (command.contains("scroll down")) {
-                                robot.mouseWheel(6); // Positive value scrolls down
+                                robot.mouseWheel(6); // Positive value scrolls down              // main scrolling part starts here 
                                 System.out.println("Scrolling down...");
                             }
                             else if (command.contains("scroll up")) {
