@@ -1,16 +1,19 @@
 package com.voice;
 
 import java.awt.Robot; // Added for mouse wheel control
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.TargetDataLine;
+
+import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 
 import org.vosk.LibVosk;
 import org.vosk.LogLevel;
@@ -26,19 +29,6 @@ public class App {
     private static String lastOpenedProcess = null;
     private static String lastOpenedName = "";
 
-    // Simple file model for searching
-    static class ProjectFile {
-        String name;
-        String path;
-        boolean isAdminOnly;
-
-        ProjectFile(String name, String path, boolean isAdminOnly) {
-            this.name = name;
-            this.path = path;
-            this.isAdminOnly = isAdminOnly;
-        }
-    }
-
     public static void main(String[] args) {
         LibVosk.setLogLevel(LogLevel.WARNINGS);
 
@@ -46,7 +36,7 @@ public class App {
         DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
 
         try {
-            // Initialize Robot for mouse scrolling and system keys
+            // Initialize Robot for mouse scrolling
             Robot robot = new Robot();                          //  [ robot is hella essential cuz its responsible for user input for example
                                                                 // mouse click, scrolling up / down and so on... ]
 
@@ -63,12 +53,6 @@ public class App {
             int bytesRead;
             ObjectMapper objectMapper = new ObjectMapper();
 
-            // Set current user role (false = regular user, true = admin)
-            boolean isUserAdmin = false; 
-
-            // Auto-scan project files dynamically
-            List<ProjectFile> fileIndex = scanDirectory(new File("."), new ArrayList<>());
-
             while (true) {
                 bytesRead = microphone.read(buffer, 0, buffer.length);
 
@@ -82,9 +66,6 @@ public class App {
                             System.out.println(" || Command Registered : " + text);
 
                             String command = text.toLowerCase();
-
-                            // Normalizing input (e.g. "d o c s" -> "docs", "v two" -> "v2")
-                            String normalizedCommand = normalizeVoiceInput(command);
 
                             if (command.contains("open edge")) {
                                 try {
@@ -107,12 +88,12 @@ public class App {
                                     ex.printStackTrace();
                                 }
                             }
-                            else if (command.contains("open games")){
+                             else if (command.contains("open games")){
                                 try{
                                     Runtime.getRuntime().exec("cmd /c start com.epicgames.launcher://store");   //E P I C     G a m e s 
                                     lastOpenedProcess = "EpicGamesLauncher.exe";
                                     lastOpenedName = "Epic Games";
-                                    System.out.println("Opening Epic Games....");
+                                    System.out.println(("Opening Epic Games...."));
                                 } catch(Exception ex){
                                     System.out.println("Failed to open Epic Games");
                                     ex.printStackTrace();
@@ -123,36 +104,26 @@ public class App {
                                     Runtime.getRuntime().exec("cmd /c start steam://open/main");
                                     lastOpenedProcess = "steam.exe";
                                     lastOpenedName = "Steam";
-                                    System.out.println("Opening Steam...");      // S t e a m     
+                                    System.out.println(("Opening Steam..."));              // S t e a m     
                                 } catch(Exception ex){
                                     System.out.println("Failed to open Steam");
                                     ex.printStackTrace();
                                 }
                             }
-                            // --- OPEN INSTAGRAM ON EDGE ---
-                            else if (command.contains("open instagram") || command.contains("search instagram") || command.contains("instagram")) {
-                                try {
-                                    new ProcessBuilder("cmd", "/c", "start", "msedge", "https://www.instagram.com").start();   // Opens Instagram in Edge
-                                    lastOpenedProcess = "msedge.exe";
-                                    lastOpenedName = "Edge (Instagram)";
-                                    System.out.println("Opening Instagram on Edge...");
-                                } catch (Exception ex) {
-                                    System.out.println("Failed to open Instagram on Edge.");
-                                    ex.printStackTrace();
+                            else if (command.startsWith("open file") || command.startsWith("open folder")
+                                    || command.startsWith("find") || command.startsWith("search")) {
+                                // Strip off whatever trigger phrase started the sentence, so natural
+                                // phrasing like "find my documents" works, not just "find file documents"
+                                String query = command
+                                        .replaceFirst("^(open file|open folder|find my|find file|find|search for|search)", "")
+                                        .trim();
+
+                                if (!query.isEmpty()) {
+                                    System.out.println("Searching for: " + query + " ...");
+                                    searchAndOpenItem(query);
+                                } else {
+                                    System.out.println("Please specify a file or folder name.");
                                 }
-                            }
-                            // --- VOLUME CONTROL (FIXED) ---
-                            else if (command.contains("volume up") || command.contains("turn up volume") || command.contains("increase volume")) {
-                                pressVolumeKey("0xAF", 5); // 0xAF = Volume Up (pressed 5 times)
-                                System.out.println("Increasing volume...");
-                            }
-                            else if (command.contains("volume down") || command.contains("turn down volume") || command.contains("decrease volume")) {
-                                pressVolumeKey("0xAE", 5); // 0xAE = Volume Down (pressed 5 times)
-                                System.out.println("Decreasing volume...");
-                            }
-                            else if (command.contains("mute volume") || command.contains("mute audio") || command.contains("unmute")) {
-                                pressVolumeKey("0xAD", 1); // 0xAD = Mute Toggle
-                                System.out.println("Toggling volume mute...");
                             }
                             else if (command.contains("scroll down")) {
                                 robot.mouseWheel(6); // Positive value scrolls down              // main scrolling part starts here 
@@ -181,25 +152,6 @@ public class App {
                                                                                                               // print statement ofc 
                                 }
                             }
-                            // File Search (Option A Security + Auto-Scanned Directory Index)
-                            else if (normalizedCommand.startsWith("find ") || normalizedCommand.startsWith("search ")) {
-                                String searchTerm = normalizedCommand.replace("find ", "").replace("search ", "").trim();
-                                System.out.println("Searching files for: " + searchTerm);
-
-                                boolean found = false;
-                                for (ProjectFile file : fileIndex) {
-                                    // Option A: Skip admin files silently if the user isn't an admin
-                                    if (file.isAdminOnly && !isUserAdmin) continue;
-
-                                    if (file.name.toLowerCase().contains(searchTerm)) {
-                                        System.out.println("Found match: " + file.name + " at path: " + file.path);
-                                        found = true;
-                                    }
-                                }
-                                if (!found) {
-                                    System.out.println("No files found matching: " + searchTerm);
-                                }
-                            }
                         }
                     } else {
                         String jsonPartial = recognizer.getPartialResult();
@@ -218,56 +170,77 @@ public class App {
         }
     }
 
-    // Helper function to trigger Windows system volume keys cleanly
-    private static void pressVolumeKey(String keyCodeHex, int repeatCount) {
-        try {
-            String psCommand = "for ($i=0; $i -lt " + repeatCount + "; $i++) { "
-                             + "(New-Object -ComObject WScript.Shell).SendKeys([char]" + keyCodeHex + ") "
-                             + "}";
-            new ProcessBuilder("powershell", "-Command", psCommand).start();
-        } catch (Exception e) {
-            System.out.println("Failed to send volume key event.");
+    // Searches Desktop first, then Documents (only if nothing found on Desktop), for a file or
+    // folder whose name contains the spoken query, then opens the first match found.
+    private static void searchAndOpenItem(String query) {
+        String target = query.trim().toLowerCase();
+
+        Path desktopPath = Paths.get(System.getProperty("user.home") + "\\OneDrive\\Desktop");
+        Path found = searchInDirectory(desktopPath, target);
+
+        if (found == null) {
+            Path documentsPath = Paths.get(System.getProperty("user.home") + "\\Documents");
+            found = searchInDirectory(documentsPath, target);
         }
-    }
 
-    //  HERE STARTS THE FILE SEARCH THINGY make sure to look here if theres anything wrong with searching 
-
-    // Helper 1: Standard Java regex normalizer (stretches single letters and basic numbers)
-    private static String normalizeVoiceInput(String input) {
-        if (input == null) return "";
-
-        // 1. Convert simple spoken numbers
-        String cleaned = input
-            .replaceAll("(?i)\\b(two)\\b", "2")
-            .replaceAll("(?i)\\b(three)\\b", "3")
-            .replaceAll("(?i)\\b(four)\\b", "4");
-
-        // 2. Stitch single letters ("d o c s" -> "docs") using java.util.regex.Matcher
-        Pattern pattern = Pattern.compile("(?:\\b[a-zA-Z0-9]\\b\\s*){2,}");
-        Matcher matcher = pattern.matcher(cleaned);
-        StringBuilder sb = new StringBuilder();
-
-        while (matcher.find()) {
-            matcher.appendReplacement(sb, matcher.group().replaceAll("\\s+", ""));
-        }
-        matcher.appendTail(sb);
-
-        return sb.toString().toLowerCase().trim();
-    }
-
-    // Helper 2: Scans current directory tree dynamically on launch
-    private static List<ProjectFile> scanDirectory(File dir, List<ProjectFile> fileList) {
-        File[] files = dir.listFiles();
-        if (files != null) {
-            for (File file : files) {
-                if (file.isDirectory() && !file.getName().startsWith(".")) {
-                    scanDirectory(file, fileList);
-                } else if (file.isFile()) {
-                    boolean isAdmin = file.getName().contains("admin") || file.getName().endsWith(".env");
-                    fileList.add(new ProjectFile(file.getName(), file.getPath(), isAdmin));
-                }
+        if (found != null) {
+            try {
+                new ProcessBuilder("cmd", "/c", "start", "", found.toAbsolutePath().toString()).start();
+                System.out.println("Opening: " + found.toAbsolutePath());
+            } catch (Exception ex) {
+                System.out.println("Failed to open found item.");
+                ex.printStackTrace();
             }
+        } else {
+            System.out.println("Couldn't find anything matching: " + query);
         }
-        return fileList;
+    }
+
+    // Walks a single directory (up to 3 levels deep) looking for a name match.
+    // Uses walkFileTree + a custom visitor so that if one subfolder is inaccessible
+    // (e.g. protected junctions like "My Music"), it just skips that one and keeps
+    // going instead of abandoning the entire search like the old Files.walk() did.
+    private static Path searchInDirectory(Path startPath, String target) {
+        if (!Files.exists(startPath)) {
+            return null; // folder doesn't exist on this machine
+        }
+
+        final Path[] result = new Path[1]; // holder so the anonymous visitor can write back a result
+
+        try {
+            Files.walkFileTree(startPath, java.util.EnumSet.noneOf(java.nio.file.FileVisitOption.class), 3,
+                new SimpleFileVisitor<Path>() {
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        if (file.getFileName().toString().toLowerCase().contains(target)) {
+                            result[0] = file;
+                            return FileVisitResult.TERMINATE; // stop as soon as we find a match
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
+                        if (dir.getFileName().toString().toLowerCase().contains(target)) {
+                            result[0] = dir;
+                            return FileVisitResult.TERMINATE; // match on a folder name too
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                        // Skip inaccessible files/folders (e.g. permission-denied junctions)
+                        // instead of letting the whole walk die
+                        System.out.println("Skipped inaccessible item: " + file);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+        } catch (IOException ex) {
+            System.out.println("Error while searching in " + startPath);
+        }
+
+        return result[0];
     }
 }
