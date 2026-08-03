@@ -244,3 +244,5 @@ public class App {
         return result[0];
     }
 }
+
+// still working on it :( just taking a day off allow it xd
