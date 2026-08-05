@@ -40,7 +40,8 @@ public class App {
             Robot robot = new Robot();                          //  [ robot is hella essential cuz its responsible for user input for example
                                                                 // mouse click, scrolling up / down and so on... ]
 
-            Model model = new Model("models/vosk-model-small-en-us-0.15");
+            Model model = new Model("models/vosk-model-small-en-us-0.15");        // pre - trained AI used for this project
+            
             Recognizer recognizer = new Recognizer(model, 16000);             // zeee brainnnn.......human english / vocabulary and stuff you know xd 
 
             TargetDataLine microphone = (TargetDataLine) AudioSystem.getLine(info);
