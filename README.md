@@ -7,6 +7,7 @@ A lightweight, offline Java desktop application that uses pre-trained AI models 
 - **Application Launcher:** Open browsers (Chrome, Edge) and gaming clients (Steam, Epic Games) with voice commands.
 - **System Controls:** Hands-free mouse scrolling up and down using Java's `Robot` class.
 - **Process Management:** Track and force-close the last opened application via voice.
+- Recognizes voice and allows one to find a particular file on Desktop
 - more features are yet to be added....
 
 ## Prerequisites
