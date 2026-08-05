@@ -17,4 +17,4 @@ A lightweight, offline Java desktop application that uses pre-trained AI models 
 ## How to Run
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git](https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git)
+   git clone [git clone https://github.com/krishpatel-13/voice-recognizer-with-addition-features.git]
